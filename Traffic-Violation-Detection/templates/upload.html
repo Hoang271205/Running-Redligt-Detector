@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="max-w-2xl mx-auto">
+    <div class="bg-slate-800 border border-purple-500 rounded-lg p-8">
+        <h2 class="text-3xl font-bold mb-8">📤 Tải Video Lên</h2>
+        
+        <form id="uploadForm" enctype="multipart/form-data" class="space-y-6">
+            <!-- Upload Box -->
+            <div id="uploadBox" class="border-3 border-dashed border-purple-500 rounded-lg p-12 text-center cursor-pointer hover:border-purple-400 hover:bg-slate-700 transition bg-slate-900">
+                <input type="file" id="videoInput" accept="video/*" hidden>
+                
+                <svg class="w-16 h-16 mx-auto text-purple-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                
+                <p class="text-xl font-semibold mb-2">Kéo thả video vào đây</p>
+                <p class="text-gray-400">hoặc click để chọn file</p>
+                <p class="text-gray-500 text-sm mt-3">Định dạng hỗ trợ: MP4, AVI, MOV, MKV</p>
+                <p id="fileName" class="text-purple-400 font-semibold mt-4"></p>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-bold py-3 rounded-lg transition">
+                ⚙️ Xử Lý Video
+            </button>
+        </form>
+
+        <!-- Status Section -->
+        <div id="status" style="display:none;" class="mt-8 p-6 bg-slate-900 border border-blue-500 rounded-lg">
+            <h3 class="text-xl font-bold mb-4">⏳ Trạng Thái Xử Lý</h3>
+            <div class="w-full bg-slate-700 rounded-full h-3 mb-4 overflow-hidden">
+                <div id="progress" class="bg-gradient-to-r from-blue-500 to-purple-500 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <p id="statusText" class="text-gray-300 font-semibold">Đang khởi động...</p>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" style="display:none;" class="mt-8 p-6 bg-slate-900 border border-green-500 rounded-lg">
+            <h3 class="text-xl font-bold mb-4">✅ Kết Quả</h3>
+            <div id="resultsList" class="space-y-3"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const uploadBox = document.getElementById('uploadBox');
+    const videoInput = document.getElementById('videoInput');
+    const uploadForm = document.getElementById('uploadForm');
+    const statusDiv = document.getElementById('status');
+    const resultsDiv = document.getElementById('results');
+    const fileName = document.getElementById('fileName');
+
+    uploadBox.addEventListener('click', () => videoInput.click());
+
+    uploadBox.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadBox.classList.add('border-purple-400', 'bg-slate-700');
+    });
+
+    uploadBox.addEventListener('dragleave', () => {
+        uploadBox.classList.remove('border-purple-400', 'bg-slate-700');
+    });
+
+    uploadBox.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadBox.classList.remove('border-purple-400', 'bg-slate-700');
+        videoInput.files = e.dataTransfer.files;
+        updateFileName();
+    });
+
+    videoInput.addEventListener('change', updateFileName);
+
+    function updateFileName() {
+        if (videoInput.files[0]) {
+            fileName.textContent = `✓ ${videoInput.files[0].name}`;
+        }
+    }
+
+    uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const file = videoInput.files[0];
+        if (!file) {
+            alert('Vui lòng chọn video');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('video', file);
+
+        try {
+            const response = await fetch('/upload', {method: 'POST', body: formData});
+            const data = await response.json();
+            
+            if (response.ok) {
+                statusDiv.style.display = 'block';
+                resultsDiv.style.display = 'none';
+                checkStatus(data.video_id);
+            } else {
+                alert('Lỗi: ' + data.error);
+            }
+        } catch (error) {
+            alert('Lỗi: ' + error.message);
+        }
+    });
+
+    async function checkStatus(videoId) {
+        const statusText = document.getElementById('statusText');
+        
+        while (true) {
+            const response = await fetch(`/status/${videoId}`);
+            const data = await response.json();
+
+            if (data.status === 'completed') {
+                statusText.innerHTML = `✅ Hoàn thành! Phát hiện <span class="text-red-400 font-bold">${data.count}</span> vi phạm`;
+                document.getElementById('progress').style.width = '100%';
+                showResults(data.violations);
+                break;
+            } else if (data.status === 'error') {
+                statusText.innerHTML = `❌ Lỗi: ${data.message}`;
+                break;
+            } else {
+                statusText.textContent = `Đang xử lý... ${data.progress}%`;
+                document.getElementById('progress').style.width = data.progress + '%';
+            }
+
+            await new Promise(r => setTimeout(r, 1000));
+        }
+    }
+
+    function showResults(violations) {
+        const list = document.getElementById('resultsList');
+        
+        if (violations.length === 0) {
+            list.innerHTML = '<p class="text-green-400">✓ Không phát hiện vi phạm</p>';
+        } else {
+            list.innerHTML = violations.map(v => `
+                <div class="bg-slate-800 p-4 rounded border-l-4 border-red-500">
+                    <p class="text-red-400 font-mono font-bold text-lg">${v}</p>
+                </div>
+            `).join('');
+        }
+        
+        resultsDiv.style.display = 'block';
+    }
+</script>
+
+{% endblock %}

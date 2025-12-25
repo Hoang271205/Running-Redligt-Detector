@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- Hero Section -->
+<section class="text-center mb-12 py-12">
+    <div class="space-y-6">
+        <h2 class="text-5xl font-bold">Hệ Thống Nhận Diện Vi Phạm Giao Thông</h2>
+        <p class="text-xl text-gray-400">Sử dụng AI để phát hiện xe vi phạm tín hiệu đèn đỏ tự động</p>
+        <a href="/upload" class="inline-block bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white font-bold py-4 px-8 rounded-lg transition transform hover:scale-105">
+            📤 Tải Video Lên Ngay
+        </a>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+    <div class="bg-slate-800 border border-purple-500 rounded-lg p-6 hover:border-purple-400 transition">
+        <div class="text-3xl mb-3">🎥</div>
+        <h3 class="text-xl font-bold mb-3">Phân tích Video</h3>
+        <p class="text-gray-400">Xử lý video giao thông tự động bằng công nghệ AI tiên tiến</p>
+    </div>
+    
+    <div class="bg-slate-800 border border-purple-500 rounded-lg p-6 hover:border-purple-400 transition">
+        <div class="text-3xl mb-3">📝</div>
+        <h3 class="text-xl font-bold mb-3">Nhận Diện Biển Số</h3>
+        <p class="text-gray-400">Trích xuất và xác định biển số xe một cách chính xác 99%</p>
+    </div>
+    
+    <div class="bg-slate-800 border border-purple-500 rounded-lg p-6 hover:border-purple-400 transition">
+        <div class="text-3xl mb-3">💾</div>
+        <h3 class="text-xl font-bold mb-3">Cơ Sở Dữ Liệu</h3>
+        <p class="text-gray-400">Lưu trữ vi phạm tập trung, dễ dàng quản lý và theo dõi</p>
+    </div>
+</section>
+
+<!-- Violations Table -->
+<section id="violations" class="bg-slate-800 border border-purple-500 rounded-lg p-8">
+    <h2 class="text-3xl font-bold mb-6">📋 Danh Sách Vi Phạm</h2>
+    
+    <div class="overflow-x-auto mb-6">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b-2 border-purple-500">
+                    <th class="px-6 py-4 text-left font-bold text-red-400">Biển Số Xe</th>
+                    <th class="px-6 py-4 text-left font-bold text-red-400">Số Lần Vi Phạm</th>
+                    <th class="px-6 py-4 text-left font-bold text-red-400">Lần Cuối</th>
+                </tr>
+            </thead>
+            <tbody id="violations-tbody">
+                <tr>
+                    <td colspan="3" class="px-6 py-8 text-center text-gray-400">
+                        <div class="animate-spin inline-block w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full mr-3"></div>
+                        Đang tải...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <button onclick="clearViolations()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition">
+        🗑️ Xóa Tất Cả
+    </button>
+</section>
+
+<script>
+    function loadViolations() {
+        fetch('/violations')
+            .then(r => r.json())
+            .then(data => {
+                const tbody = document.getElementById('violations-tbody');
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="px-6 py-8 text-center text-gray-400">Không có vi phạm</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = data.map(v => `
+                    <tr class="border-b border-slate-700 hover:bg-slate-700 transition">
+                        <td class="px-6 py-4 font-mono text-red-400 font-bold">${v.plate_number}</td>
+                        <td class="px-6 py-4">
+                            <span class="bg-red-900 text-red-200 px-3 py-1 rounded-full font-bold">${v.violation_count}</span>
+                        </td>
+                        <td class="px-6 py-4 text-gray-400 text-sm">${new Date(v.last_violation).toLocaleString('vi-VN')}</td>
+                    </tr>
+                `).join('');
+            });
+    }
+
+    function clearViolations() {
+        if (confirm('Bạn chắc chắn muốn xóa tất cả vi phạm?')) {
+            fetch('/clear-violations', {method: 'POST'})
+                .then(() => {
+                    alert('✓ Đã xóa tất cả vi phạm');
+                    loadViolations();
+                });
+        }
+    }
+
+    loadViolations();
+    setInterval(loadViolations, 5001);
+</script>
+
+{% endblock %}
